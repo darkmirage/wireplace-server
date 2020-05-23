@@ -8,6 +8,8 @@ const morgan = require('morgan');
 const uuid = require('uuid');
 const sccBrokerClient = require('scc-broker-client');
 
+const wireplace = require('./wireplace');
+
 const ENVIRONMENT = process.env.ENV || 'dev';
 const SOCKETCLUSTER_PORT = process.env.SOCKETCLUSTER_PORT || 8000;
 const SOCKETCLUSTER_WS_ENGINE = process.env.SOCKETCLUSTER_WS_ENGINE || 'ws';
@@ -62,6 +64,13 @@ expressApp.get('/health-check', (req, res) => {
 (async () => {
   for await (let {socket} of agServer.listener('connection')) {
     // Handle socket connection.
+    console.log('Connected', socket.id);
+
+    (async () => {
+      for await (let data of socket.receiver('move')) {
+        wireplace.move(data);
+      }
+    })();
   }
 })();
 
