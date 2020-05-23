@@ -1,34 +1,34 @@
-const http = require('http');
-const eetase = require('eetase');
-const socketClusterServer = require('socketcluster-server');
-const express = require('express');
-const serveStatic = require('serve-static');
-const path = require('path');
-const morgan = require('morgan');
-const uuid = require('uuid');
-const sccBrokerClient = require('scc-broker-client');
+import eetase from 'eetase';
+import express from 'express';
+import http from 'http';
+import morgan from 'morgan';
+import path from 'path';
+import sccBrokerClient from 'scc-broker-client';
+import serveStatic from 'serve-static';
+import socketClusterServer from 'socketcluster-server';
+import uuid from 'uuid';
 
-const wireplace = require('./wireplace');
+import * as wireplace from './wireplace';
 
 const ENVIRONMENT = process.env.ENV || 'dev';
-const SOCKETCLUSTER_PORT = process.env.SOCKETCLUSTER_PORT || 8000;
+const SOCKETCLUSTER_PORT = (process.env.SOCKETCLUSTER_PORT ? parseInt(process.env.SOCKETCLUSTER_PORT, 10) : undefined) || 8000;
 const SOCKETCLUSTER_WS_ENGINE = process.env.SOCKETCLUSTER_WS_ENGINE || 'ws';
 const SOCKETCLUSTER_SOCKET_CHANNEL_LIMIT = Number(process.env.SOCKETCLUSTER_SOCKET_CHANNEL_LIMIT) || 1000;
 const SOCKETCLUSTER_LOG_LEVEL = process.env.SOCKETCLUSTER_LOG_LEVEL || 2;
 
 const SCC_INSTANCE_ID = uuid.v4();
-const SCC_STATE_SERVER_HOST = process.env.SCC_STATE_SERVER_HOST || null;
-const SCC_STATE_SERVER_PORT = process.env.SCC_STATE_SERVER_PORT || null;
-const SCC_MAPPING_ENGINE = process.env.SCC_MAPPING_ENGINE || null;
-const SCC_CLIENT_POOL_SIZE = process.env.SCC_CLIENT_POOL_SIZE || null;
-const SCC_AUTH_KEY = process.env.SCC_AUTH_KEY || null;
-const SCC_INSTANCE_IP = process.env.SCC_INSTANCE_IP || null;
-const SCC_INSTANCE_IP_FAMILY = process.env.SCC_INSTANCE_IP_FAMILY || null;
-const SCC_STATE_SERVER_CONNECT_TIMEOUT = Number(process.env.SCC_STATE_SERVER_CONNECT_TIMEOUT) || null;
-const SCC_STATE_SERVER_ACK_TIMEOUT = Number(process.env.SCC_STATE_SERVER_ACK_TIMEOUT) || null;
-const SCC_STATE_SERVER_RECONNECT_RANDOMNESS = Number(process.env.SCC_STATE_SERVER_RECONNECT_RANDOMNESS) || null;
-const SCC_PUB_SUB_BATCH_DURATION = Number(process.env.SCC_PUB_SUB_BATCH_DURATION) || null;
-const SCC_BROKER_RETRY_DELAY = Number(process.env.SCC_BROKER_RETRY_DELAY) || null;
+const SCC_STATE_SERVER_HOST = process.env.SCC_STATE_SERVER_HOST || undefined;
+const SCC_STATE_SERVER_PORT = process.env.SCC_STATE_SERVER_PORT ? parseInt(process.env.SCC_STATE_SERVER_PORT, 10) : undefined;
+const SCC_MAPPING_ENGINE = process.env.SCC_MAPPING_ENGINE || undefined;
+const SCC_CLIENT_POOL_SIZE = process.env.SCC_CLIENT_POOL_SIZE ? parseInt(process.env.SCC_CLIENT_POOL_SIZE, 10) : undefined;
+const SCC_AUTH_KEY = process.env.SCC_AUTH_KEY || undefined;
+const SCC_INSTANCE_IP = process.env.SCC_INSTANCE_IP || undefined;
+const SCC_INSTANCE_IP_FAMILY = process.env.SCC_INSTANCE_IP_FAMILY || undefined;
+const SCC_STATE_SERVER_CONNECT_TIMEOUT = Number(process.env.SCC_STATE_SERVER_CONNECT_TIMEOUT) || undefined;
+const SCC_STATE_SERVER_ACK_TIMEOUT = Number(process.env.SCC_STATE_SERVER_ACK_TIMEOUT) || undefined;
+const SCC_STATE_SERVER_RECONNECT_RANDOMNESS = Number(process.env.SCC_STATE_SERVER_RECONNECT_RANDOMNESS) || undefined;
+const SCC_PUB_SUB_BATCH_DURATION = Number(process.env.SCC_PUB_SUB_BATCH_DURATION) || undefined;
+const SCC_BROKER_RETRY_DELAY = Number(process.env.SCC_BROKER_RETRY_DELAY) || undefined;
 
 let agOptions = {};
 
@@ -67,6 +67,14 @@ expressApp.get('/health-check', (req, res) => {
     console.log('Connected', socket.id);
 
     (async () => {
+      for await (let request of socket.procedure('join')) {
+        const actorId = wireplace.join();
+        console.log('New actor', actorId);
+        request.end(actorId);
+      }
+    })();
+
+    (async () => {
       for await (let data of socket.receiver('move')) {
         wireplace.move(data);
       }
@@ -96,7 +104,7 @@ if (SOCKETCLUSTER_LOG_LEVEL >= 2) {
   })();
 }
 
-function colorText(message, color) {
+function colorText(message: string, color: number) {
   if (color) {
     return `\x1b[${color}m${message}\x1b[0m`;
   }
@@ -113,7 +121,7 @@ if (SCC_STATE_SERVER_HOST) {
     pubSubBatchDuration: SCC_PUB_SUB_BATCH_DURATION,
     stateServerHost: SCC_STATE_SERVER_HOST,
     stateServerPort: SCC_STATE_SERVER_PORT,
-    mappingEngine: SCC_MAPPING_ENGINE,
+    mappingEngine: <any> SCC_MAPPING_ENGINE,
     clientPoolSize: SCC_CLIENT_POOL_SIZE,
     authKey: SCC_AUTH_KEY,
     stateServerConnectTimeout: SCC_STATE_SERVER_CONNECT_TIMEOUT,
