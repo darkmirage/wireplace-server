@@ -98,7 +98,7 @@ expressApp.get('/health-check', (req, res) => {
 
     (async () => {
       for await (let data of socket.receiver('move')) {
-        wireplace.move(data);
+        wireplace.move(socket.id, data);
       }
     })();
 
@@ -118,7 +118,7 @@ expressApp.get('/health-check', (req, res) => {
 })();
 
 (async () => {
-  for await (let { socket } of agServer.listener('disconnection')) {
+  for await (let { socket } of agServer.listener('closure')) {
     // Handle socket connection.
     console.log('Disconnected', socket.id);
     wireplace.leave(socket.id);

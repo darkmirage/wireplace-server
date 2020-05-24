@@ -58,9 +58,12 @@ function getUpdate(): string | null {
   return count > 0 ? data : null;
 }
 
-function move(data: { id: ActorID; u: Update }) {
+function move(userId: UserID, u: Update) {
   const { scene } = getRoom();
-  scene.updateActor(data.id, data.u);
+  const actorId = users[userId];
+  if (actorId) {
+    scene.updateActor(actorId, u);
+  }
 }
 
 export { leave, move, join, sync, getUpdate };
