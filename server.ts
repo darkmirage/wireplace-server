@@ -83,7 +83,8 @@ expressApp.get('/health-check', (req, res) => {
 
     (async () => {
       for await (let request of socket.procedure('join')) {
-        const actorId = wireplace.join(socket.id);
+        const { username, token } = request.data;
+        const actorId = wireplace.join(socket.id, username, token);
         console.log('New actor', actorId);
         request.end(actorId);
       }
@@ -93,6 +94,16 @@ expressApp.get('/health-check', (req, res) => {
       for await (let request of socket.procedure('sync')) {
         const diff = wireplace.sync(socket.id);
         request.end(diff);
+      }
+    })();
+
+    (async () => {
+      for await (let data of socket.receiver('say')) {
+        const line = wireplace.say(socket.id, data);
+        console.log('[Chat]', line?.username, line?.message);
+        if (line) {
+          socket.exchange.transmitPublish('said', line);
+        }
       }
     })();
 

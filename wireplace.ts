@@ -2,7 +2,8 @@ import { WirePlaceScene, Actor } from 'wireplace-scene';
 import { schemeSet2 } from 'd3-scale-chromatic';
 import type { Update } from 'wireplace-scene';
 
-let globalId = 0;
+let nextActorId = 0;
+let nextLineId = 0;
 
 type UserID = string;
 type ActorID = string;
@@ -11,7 +12,23 @@ type Room = {
   scene: WirePlaceScene;
 };
 
-const users: Record<UserID, ActorID> = {};
+interface User {
+  actorId: ActorID;
+  color: number;
+  username: string;
+  token: string;
+}
+
+interface ChatLine {
+  lineId: number;
+  time: number;
+  username: string;
+  message: string;
+}
+
+const lines: Array<ChatLine> = [];
+
+const users: Record<UserID, User> = {};
 
 const rooms: Record<string, Room> = {
   default: {
@@ -27,22 +44,23 @@ function getRoom(roomId = 'default') {
   return rooms[roomId];
 }
 
-function join(userId: UserID): ActorID {
-  const actorId = `a${globalId}`;
-  const colorHex = schemeSet2[globalId % schemeSet2.length];
+function join(userId: UserID, username: string, token: string): ActorID {
+  const actorId = `a${nextActorId}`;
+  const colorHex = schemeSet2[nextActorId % schemeSet2.length];
   const color = parseInt(colorHex.substr(1), 16);
   const position = { x: getRandomPosition(), y: 0, z: getRandomPosition() };
-  globalId += 1;
+  nextActorId += 1;
   const { scene } = getRoom();
   scene.addActor(actorId);
   scene.updateActor(actorId, { color, position });
-  users[userId] = actorId;
+  users[userId] = { actorId, color, username, token };
   return actorId;
 }
 
 function leave(userId: UserID): boolean {
-  const actorId = users[userId];
+  const { actorId } = users[userId];
   const { scene } = getRoom();
+  delete users[userId];
   return scene.removeActor(actorId);
 }
 
@@ -60,10 +78,26 @@ function getUpdate(): string | null {
 
 function move(userId: UserID, u: Update) {
   const { scene } = getRoom();
-  const actorId = users[userId];
-  if (actorId) {
+  const user = users[userId];
+  if (user) {
+    const { actorId } = user;
     scene.updateActor(actorId, u);
   }
 }
 
-export { leave, move, join, sync, getUpdate };
+function say(userId: UserID, message: string): ChatLine | null {
+  const time = Date.now();
+  const user = users[userId];
+  if (user) {
+    const { username } = user;
+    const lineId = nextLineId;
+    const line = { lineId, time, username, message };
+    lines.push(line);
+    nextLineId += 1;
+    return line;
+  } else {
+    return null;
+  }
+}
+
+export { leave, move, join, sync, getUpdate, say };
