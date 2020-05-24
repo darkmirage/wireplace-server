@@ -10,6 +10,8 @@ import uuid from 'uuid';
 
 import * as wireplace from './wireplace';
 
+const UPDATE_FPS = 30;
+
 const ENVIRONMENT = process.env.ENV || 'dev';
 const SOCKETCLUSTER_PORT =
   (process.env.SOCKETCLUSTER_PORT
@@ -119,7 +121,7 @@ expressApp.get('/health-check', (req, res) => {
         return;
       }
       socket.exchange.transmitPublish('update', diff);
-    }, 10);
+    }, 1000 / UPDATE_FPS);
   }
 
   if (intervalId) {
