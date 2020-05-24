@@ -97,9 +97,8 @@ expressApp.get('/health-check', (req, res) => {
     })();
 
     (async () => {
-      for await (let request of socket.procedure('move')) {
-        wireplace.move(request.data);
-        request.end(true);
+      for await (let data of socket.receiver('move')) {
+        wireplace.move(data);
       }
     })();
 
