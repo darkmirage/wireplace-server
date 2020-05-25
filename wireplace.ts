@@ -1,6 +1,6 @@
-import { WirePlaceScene, Actor } from 'wireplace-scene';
+import { WirePlaceScene } from 'wireplace-scene';
 import { schemeSet2 } from 'd3-scale-chromatic';
-import type { Update } from 'wireplace-scene';
+import type { Update, WirePlaceSceneSerialized } from 'wireplace-scene';
 
 let nextActorId = 0;
 let nextLineId = 0;
@@ -64,13 +64,13 @@ function leave(userId: UserID): boolean {
   return scene.removeActor(actorId);
 }
 
-function sync(userId: UserID): string {
+function sync(userId: UserID): WirePlaceSceneSerialized {
   const { scene } = getRoom();
   const { data } = scene.retrieveSerializedDiff(true);
   return data;
 }
 
-function getUpdate(): string | null {
+function getUpdate(): WirePlaceSceneSerialized | null {
   const { scene } = getRoom();
   const { count, data } = scene.retrieveSerializedDiff(false);
   return count > 0 ? data : null;
