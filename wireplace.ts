@@ -1,5 +1,5 @@
 import { WirePlaceScene } from 'wireplace-scene';
-import { schemeSet2 } from 'd3-scale-chromatic';
+import { schemeSet1 } from 'd3-scale-chromatic';
 import type { Update, WirePlaceSceneSerialized } from 'wireplace-scene';
 
 let nextActorId = 0;
@@ -15,6 +15,7 @@ type Room = {
 interface User {
   actorId: ActorID;
   color: number;
+  assetId: number;
   username: string;
   token: string;
 }
@@ -25,6 +26,8 @@ interface ChatLine {
   username: string;
   message: string;
 }
+
+const NUMBER_ASSETS = 2;
 
 const lines: Array<ChatLine> = [];
 
@@ -46,14 +49,15 @@ function getRoom(roomId = 'default') {
 
 function join(userId: UserID, username: string, token: string): ActorID {
   const actorId = `a${nextActorId}`;
-  const colorHex = schemeSet2[nextActorId % schemeSet2.length];
+  const colorHex = schemeSet1[nextActorId % schemeSet1.length];
   const color = parseInt(colorHex.substr(1), 16);
+  const assetId = Math.floor(Math.random() * Math.floor(NUMBER_ASSETS));
   const position = { x: getRandomPosition(), y: 0, z: getRandomPosition() };
   nextActorId += 1;
   const { scene } = getRoom();
   scene.addActor(actorId);
-  scene.updateActor(actorId, { color, position });
-  users[userId] = { actorId, color, username, token };
+  scene.updateActor(actorId, { color, position, assetId });
+  users[userId] = { actorId, color, username, token, assetId };
   return actorId;
 }
 
