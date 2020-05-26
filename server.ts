@@ -84,14 +84,14 @@ expressApp.get('/health-check', (req, res) => {
 
   for await (let { socket } of agServer.listener('connection')) {
     // Handle socket connection.
-    serverLogger.info({ listener: 'connection', socket: socket.id });
+    serverLogger.info({ event: 'connection', socket: socket.id });
 
     (async () => {
       for await (let request of socket.procedure('join')) {
         const { username, token } = request.data;
         const actorId = wireplace.join(socket.id, username, token);
         serverLogger.info({
-          procedure: 'join',
+          event: 'join',
           username,
           token,
           socket: socket.id,
@@ -111,7 +111,7 @@ expressApp.get('/health-check', (req, res) => {
       for await (let data of socket.receiver('say')) {
         const line = wireplace.say(socket.id, data);
         if (line) {
-          serverLogger.info({ receiver: 'say', line, socket: socket.id });
+          serverLogger.info({ event: 'say', line, socket: socket.id });
           socket.exchange.transmitPublish('said', line);
         }
       }
@@ -141,7 +141,7 @@ expressApp.get('/health-check', (req, res) => {
 (async () => {
   for await (let { socket } of agServer.listener('closure')) {
     // Handle socket connection.
-    serverLogger.info({ listener: 'closure', socket: socket.id });
+    serverLogger.info({ event: 'closure', socket: socket.id });
     wireplace.leave(socket.id);
   }
 })();
@@ -164,7 +164,7 @@ if (SOCKETCLUSTER_LOG_LEVEL >= 2) {
 
   (async () => {
     for await (let { warning } of agServer.listener('warning')) {
-      serverLogger.warn(warning);
+      serverLogger.warn({ warning });
     }
   })();
 }
