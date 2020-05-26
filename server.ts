@@ -8,7 +8,10 @@ import serveStatic from 'serve-static';
 import socketClusterServer from 'socketcluster-server';
 import uuid from 'uuid';
 
+import logger from './logger';
 import * as wireplace from './wireplace';
+
+const serverLogger = logger.child({ module: 'server' });
 
 const UPDATE_FPS = 30;
 
@@ -81,13 +84,18 @@ expressApp.get('/health-check', (req, res) => {
 
   for await (let { socket } of agServer.listener('connection')) {
     // Handle socket connection.
-    console.log('Connected', socket.id);
+    serverLogger.info({ listener: 'connection', socket: socket.id });
 
     (async () => {
       for await (let request of socket.procedure('join')) {
         const { username, token } = request.data;
         const actorId = wireplace.join(socket.id, username, token);
-        console.log('New actor', actorId);
+        serverLogger.info({
+          procedure: 'join',
+          username,
+          token,
+          socket: socket.id,
+        });
         request.end(actorId);
       }
     })();
@@ -102,8 +110,8 @@ expressApp.get('/health-check', (req, res) => {
     (async () => {
       for await (let data of socket.receiver('say')) {
         const line = wireplace.say(socket.id, data);
-        console.log('[Chat]', line?.username, line?.message);
         if (line) {
+          serverLogger.info({ receiver: 'say', line, socket: socket.id });
           socket.exchange.transmitPublish('said', line);
         }
       }
@@ -127,13 +135,13 @@ expressApp.get('/health-check', (req, res) => {
   if (intervalId) {
     clearInterval(intervalId);
   }
-  console.log('Main loop terminated');
+  serverLogger.info('Main loop terminated');
 })();
 
 (async () => {
   for await (let { socket } of agServer.listener('closure')) {
     // Handle socket connection.
-    console.log('Disconnected', socket.id);
+    serverLogger.info({ listener: 'closure', socket: socket.id });
     wireplace.leave(socket.id);
   }
 })();
@@ -143,30 +151,22 @@ httpServer.listen(SOCKETCLUSTER_PORT);
 if (SOCKETCLUSTER_LOG_LEVEL >= 1) {
   (async () => {
     for await (let { error } of agServer.listener('error')) {
-      console.error(error);
+      serverLogger.error(error);
     }
   })();
 }
 
 if (SOCKETCLUSTER_LOG_LEVEL >= 2) {
-  console.log(
-    `   ${colorText('[Active]', 32)} SocketCluster worker with PID ${
-      process.pid
-    } is listening on port ${SOCKETCLUSTER_PORT}`
-  );
+  serverLogger.info({
+    process: process.pid,
+    port: SOCKETCLUSTER_PORT,
+  });
 
   (async () => {
     for await (let { warning } of agServer.listener('warning')) {
-      console.warn(warning);
+      serverLogger.warn(warning);
     }
   })();
-}
-
-function colorText(message: string, color: number) {
-  if (color) {
-    return `\x1b[${color}m${message}\x1b[0m`;
-  }
-  return message;
 }
 
 if (SCC_STATE_SERVER_HOST) {
@@ -192,7 +192,7 @@ if (SCC_STATE_SERVER_HOST) {
     (async () => {
       for await (let { error } of sccClient.listener('error')) {
         error.name = 'SCCError';
-        console.error(error);
+        serverLogger.error(error);
       }
     })();
   }
