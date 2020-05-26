@@ -10,6 +10,8 @@ type Message = {
   line: any;
 };
 
+const DEFAULT_EVENT = 'general';
+
 const logger = winston.createLogger({
   level: 'info',
   format: format.timestamp(),
@@ -29,16 +31,16 @@ const logger = winston.createLogger({
             const m_ = { ...m };
             delete m_.event;
             delete m_.socket;
-            output =
-              Object.keys(m).length > 0
-                ? util.inspect(m_, {
-                    colors: true,
-                    depth: 2,
-                    breakLength: Infinity,
-                  })
-                : '';
+            output = util.inspect(m_, {
+              colors: true,
+              depth: 2,
+              breakLength: Infinity,
+            });
+            if (output === '{}') {
+              output = '';
+            }
           }
-          event = event || 'general';
+          event = event || DEFAULT_EVENT;
           switch (event) {
             case 'connection': {
               event = chalk.cyanBright(event);
@@ -54,7 +56,7 @@ const logger = winston.createLogger({
             }
           }
 
-          socket = socket ? `[${socket.substr(0, 6)}] ` : '';
+          socket = socket ? `[${socket.substr(0, DEFAULT_EVENT.length)}] ` : '';
 
           return `${l.timestamp} [${l.level}] ${socket}[${event}] ${output}`;
         })
