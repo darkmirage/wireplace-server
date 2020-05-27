@@ -12,19 +12,25 @@ type Room = {
   scene: WirePlaceScene;
 };
 
-interface User {
+interface UserPublic {
   actorId: ActorID;
   color: number;
-  assetId: number;
   username: string;
+}
+
+interface UserPrivate {
+  assetId: number;
   token: string;
 }
 
+type User = UserPublic & UserPrivate;
+
 interface ChatLine {
+  color: number;
   lineId: number;
+  message: string;
   time: number;
   username: string;
-  message: string;
 }
 
 const NUMBER_ASSETS = 2;
@@ -32,6 +38,7 @@ const NUMBER_ASSETS = 2;
 const lines: Array<ChatLine> = [];
 
 const users: Record<UserID, User> = {};
+const actorsToUsers: Record<ActorID, User> = {};
 
 const rooms: Record<string, Room> = {
   default: {
@@ -57,7 +64,9 @@ function join(userId: UserID, username: string, token: string): ActorID {
   const { scene } = getRoom();
   scene.addActor(actorId);
   scene.updateActor(actorId, { color, position, assetId });
-  users[userId] = { actorId, color, username, token, assetId };
+  const userRecord = { actorId, color, username, token, assetId };
+  users[userId] = userRecord;
+  actorsToUsers[actorId] = userRecord;
   return actorId;
 }
 
@@ -80,6 +89,26 @@ function getUpdate(): WirePlaceSceneSerialized | null {
   return count > 0 ? data : null;
 }
 
+function getUser(actorId: string): UserPublic | undefined {
+  const user = actorsToUsers[actorId];
+  if (!user) {
+    return undefined;
+  }
+  const { username, color } = user;
+  return { username, color, actorId };
+}
+
+function getUsers(actorIds: Array<ActorID>): Record<ActorID, UserPublic> {
+  const results: Record<ActorID, UserPublic> = {};
+  for (const actorId of actorIds) {
+    const user = getUser(actorId);
+    if (user) {
+      results[actorId] = user;
+    }
+  }
+  return results;
+}
+
 function move(userId: UserID, u: Update) {
   const { scene } = getRoom();
   const user = users[userId];
@@ -93,9 +122,9 @@ function say(userId: UserID, message: string): ChatLine | null {
   const time = Date.now();
   const user = users[userId];
   if (user) {
-    const { username } = user;
+    const { username, color } = user;
     const lineId = nextLineId;
-    const line = { lineId, time, username, message };
+    const line: ChatLine = { lineId, time, username, message, color };
     lines.push(line);
     nextLineId += 1;
     return line;
@@ -104,4 +133,4 @@ function say(userId: UserID, message: string): ChatLine | null {
   }
 }
 
-export { leave, move, join, sync, getUpdate, say };
+export { leave, move, join, sync, getUpdate, getUsers, say };

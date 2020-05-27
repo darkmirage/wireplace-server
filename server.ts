@@ -108,6 +108,13 @@ expressApp.get('/health-check', (req, res) => {
     })();
 
     (async () => {
+      for await (let request of socket.procedure('user')) {
+        const user = wireplace.getUsers(request.data);
+        request.end(user);
+      }
+    })();
+
+    (async () => {
       for await (let data of socket.receiver('say')) {
         const line = wireplace.say(socket.id, data);
         if (line) {
