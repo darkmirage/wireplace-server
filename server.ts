@@ -13,7 +13,7 @@ import * as wireplace from './wireplace';
 
 const serverLogger = logger.child({ module: 'server' });
 
-const UPDATE_FPS = 30;
+const UPDATE_FPS = 3;
 
 const ENVIRONMENT = process.env.ENV || 'dev';
 const SOCKETCLUSTER_PORT =
