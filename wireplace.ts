@@ -33,7 +33,7 @@ interface ChatLine {
   username: string;
 }
 
-const NUMBER_ASSETS = 2;
+const NUMBER_ASSETS = 10;
 
 const lines: Array<ChatLine> = [];
 
@@ -46,8 +46,14 @@ const rooms: Record<string, Room> = {
   },
 };
 
+function getRandomInt(min: number, max: number): number {
+  min = Math.ceil(min);
+  max = Math.floor(max);
+  return Math.floor(Math.random() * (max - min + 1)) + min;
+}
+
 function getRandomPosition(): number {
-  return Math.random() * 2.0 - 1.0;
+  return getRandomInt(0, NUMBER_ASSETS - 1);
 }
 
 function getRoom(roomId = 'default') {
