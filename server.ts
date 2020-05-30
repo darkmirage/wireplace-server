@@ -1,6 +1,8 @@
 import eetase from 'eetase';
 import express, { request } from 'express';
+import fs from 'fs';
 import http from 'http';
+import https from 'https';
 import morgan from 'morgan';
 import path from 'path';
 import sccBrokerClient from 'scc-broker-client';
@@ -56,6 +58,22 @@ if (process.env.SOCKETCLUSTER_OPTIONS) {
 }
 
 let httpServer = eetase(http.createServer());
+
+if (ENVIRONMENT === 'prod') {
+  const cert = process.env.WIREPLACE_SSL_CERT;
+  const key = process.env.WIREPLACE_SSL_KEY;
+
+  if (!cert || !key) {
+    throw new Error('Missing SSL cert');
+  }
+
+  const options = {
+    key: fs.readFileSync(key),
+    cert: fs.readFileSync(cert),
+  };
+  httpServer = eetase(https.createServer(options));
+}
+
 let agServer = socketClusterServer.attach(httpServer, agOptions);
 
 let expressApp = express();
