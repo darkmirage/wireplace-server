@@ -176,7 +176,7 @@ httpServer.listen(SOCKETCLUSTER_PORT);
 if (SOCKETCLUSTER_LOG_LEVEL >= 1) {
   (async () => {
     for await (let { error } of agServer.listener('error')) {
-      serverLogger.error(error);
+      serverLogger.error({ error });
     }
   })();
 }
