@@ -2,6 +2,16 @@ import { WirePlaceScene } from 'wireplace-scene';
 import { schemeSet1 } from 'd3-scale-chromatic';
 import type { Update, WirePlaceSceneSerialized } from 'wireplace-scene';
 
+import {
+  RtcTokenBuilder,
+  RtmTokenBuilder,
+  RtcRole,
+  RtmRole,
+} from 'agora-access-token';
+
+const AGORA_APP_ID = '2fe980bdfc9f40f9bde6d0348f8f2f9d';
+const AGORO_CERTIFICATE = 'b21e0b9643254bf7a649c0319c10a3a5';
+
 let nextActorId = 0;
 let nextLineId = 0;
 
@@ -60,7 +70,12 @@ function getRoom(roomId = 'default') {
   return rooms[roomId];
 }
 
-function join(userId: UserID, username: string, token: string): ActorID {
+function join(
+  userId: UserID,
+  username: string,
+  channel: string,
+  token: string
+): ActorID {
   const actorId = `a${nextActorId}`;
   const colorHex = schemeSet1[nextActorId % schemeSet1.length];
   const color = parseInt(colorHex.substr(1), 16);
@@ -74,6 +89,25 @@ function join(userId: UserID, username: string, token: string): ActorID {
   users[userId] = userRecord;
   actorsToUsers[actorId] = userRecord;
   return actorId;
+}
+
+function joinAudio(userId: UserID, channel: string): string {
+  const userRecord = users[userId];
+  if (!userRecord) {
+    throw new Error('Invalid user');
+  }
+  const { actorId, username } = userRecord;
+  const currentTimestamp = Math.floor(Date.now() / 1000);
+  const expirationTimestamp = currentTimestamp + 3600;
+  const agoraToken = RtcTokenBuilder.buildTokenWithAccount(
+    AGORA_APP_ID,
+    AGORO_CERTIFICATE,
+    channel,
+    actorId,
+    RtcRole.PUBLISHER,
+    expirationTimestamp
+  );
+  return agoraToken;
 }
 
 function leave(userId: UserID): boolean {
@@ -139,4 +173,4 @@ function say(userId: UserID, message: string): ChatLine | null {
   }
 }
 
-export { leave, move, join, sync, getUpdate, getUsers, say };
+export { leave, move, join, joinAudio, sync, getUpdate, getUsers, say };

@@ -106,15 +106,32 @@ expressApp.get('/health-check', (req, res) => {
 
     (async () => {
       for await (let request of socket.procedure('join')) {
-        const { username, token } = request.data;
-        const actorId = wireplace.join(socket.id, username, token);
+        const { username, token, channel } = request.data;
+        const actorId = wireplace.join(socket.id, username, channel, token);
+        const agoraToken = wireplace.joinAudio(socket.id, channel);
         serverLogger.info({
           event: 'join',
           username,
+          channel,
           token,
           socket: socket.id,
         });
         request.end(actorId);
+      }
+    })();
+
+    (async () => {
+      for await (let request of socket.procedure('joinAudio')) {
+        const { username, token, channel } = request.data;
+        const agoraToken = wireplace.joinAudio(socket.id, channel);
+        serverLogger.info({
+          event: 'join',
+          username,
+          channel,
+          token,
+          socket: socket.id,
+        });
+        request.end(agoraToken);
       }
     })();
 
