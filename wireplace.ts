@@ -217,6 +217,15 @@ function getUsers(actorIds: Array<ActorID>): Record<ActorID, UserPublic> {
   return results;
 }
 
+const INITIAL_CHAT_HISTORY = 10;
+
+function getChatHistory(userId: string): Array<ChatLine> {
+  const chats: Array<ChatLine> = [];
+  const { roomId } = getUserOrThrow(userId);
+  const { lines } = getRoomOrThrow(roomId);
+  return lines.slice(-INITIAL_CHAT_HISTORY);
+}
+
 function move(userId: UserID, u: Update) {
   const { actorId, roomId } = getUserOrThrow(userId);
   const { scene } = getRoomOrThrow(roomId);
@@ -243,7 +252,8 @@ export {
   join,
   joinAudio,
   sync,
-  getUpdates as getUpdate,
+  getUpdates,
   getUsers,
+  getChatHistory,
   say,
 };

@@ -149,6 +149,14 @@ expressApp.get('/health-check', (req, res) => {
     })();
 
     (async () => {
+      for await (let request of socket.procedure('getChatHistory')) {
+        const { socket } = request;
+        const lines = wireplace.getChatHistory(socket.id);
+        request.end(lines);
+      }
+    })();
+
+    (async () => {
       for await (let data of socket.receiver('say')) {
         const { roomId, line } = wireplace.say(socket.id, data);
         if (line) {
@@ -165,7 +173,7 @@ expressApp.get('/health-check', (req, res) => {
     })();
 
     intervalId = setInterval(() => {
-      const diffs = wireplace.getUpdate();
+      const diffs = wireplace.getUpdates();
       for (const roomId in diffs) {
         const diff = diffs[roomId];
         socket.exchange.transmitPublish('update:' + roomId, diff);
