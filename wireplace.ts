@@ -59,7 +59,7 @@ function getRandomInt(min: number, max: number): number {
 }
 
 function getRandomPosition(): number {
-  return getRandomInt(0, NUMBER_ASSETS - 1);
+  return Math.random() * 3 - 1.5;
 }
 
 function getUserOrThrow(userId: UserID): User {
@@ -111,7 +111,7 @@ function join(
   const actorId = `a${nextActorId}`;
   const colorHex = schemeSet1[nextActorId % schemeSet1.length];
   const color = parseInt(colorHex.substr(1), 16);
-  const assetId = Math.floor(Math.random() * Math.floor(NUMBER_ASSETS));
+  const assetId = getRandomInt(0, NUMBER_ASSETS - 1);
   const position = { x: getRandomPosition(), y: 0, z: getRandomPosition() };
   nextActorId += 1;
   scene.addActor(actorId);
