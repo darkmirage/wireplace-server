@@ -8,6 +8,7 @@ type Message = {
   event?: string;
   socket?: string;
   line: any;
+  roomId?: string;
 };
 
 const DEFAULT_EVENT = 'general';
@@ -24,9 +25,9 @@ const logger = winston.createLogger({
           let { event, socket } = m;
           let output = '';
           if (m.event === 'say') {
-            output = `${chalk.bold(m.line.username)}: ${chalk.blueBright(
-              m.line.message
-            )}`;
+            output = `[${m.roomId}] ${chalk.bold(
+              m.line.username
+            )}: ${chalk.blueBright(m.line.message)}`;
           } else {
             const m_ = { ...m };
             delete m_.event;

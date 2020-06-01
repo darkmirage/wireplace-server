@@ -106,13 +106,12 @@ expressApp.get('/health-check', (req, res) => {
 
     (async () => {
       for await (let request of socket.procedure('join')) {
-        const { username, token, channel } = request.data;
-        const actorId = wireplace.join(socket.id, username, channel, token);
-        const agoraToken = wireplace.joinAudio(socket.id, channel);
+        const { username, token, roomId } = request.data;
+        const actorId = wireplace.join(socket.id, username, roomId, token);
         serverLogger.info({
           event: 'join',
           username,
-          channel,
+          roomId,
           token,
           socket: socket.id,
         });
@@ -122,12 +121,12 @@ expressApp.get('/health-check', (req, res) => {
 
     (async () => {
       for await (let request of socket.procedure('joinAudio')) {
-        const { username, token, channel } = request.data;
-        const agoraToken = wireplace.joinAudio(socket.id, channel);
+        const { username, token, roomId } = request.data;
+        const agoraToken = wireplace.joinAudio(socket.id, roomId);
         serverLogger.info({
           event: 'join',
           username,
-          channel,
+          roomId,
           token,
           socket: socket.id,
         });
@@ -151,10 +150,10 @@ expressApp.get('/health-check', (req, res) => {
 
     (async () => {
       for await (let data of socket.receiver('say')) {
-        const line = wireplace.say(socket.id, data);
+        const { roomId, line } = wireplace.say(socket.id, data);
         if (line) {
-          serverLogger.info({ event: 'say', line, socket: socket.id });
-          socket.exchange.transmitPublish('said', line);
+          serverLogger.info({ event: 'say', line, roomId, socket: socket.id });
+          socket.exchange.transmitPublish('said:' + roomId, line);
         }
       }
     })();
@@ -166,11 +165,11 @@ expressApp.get('/health-check', (req, res) => {
     })();
 
     intervalId = setInterval(() => {
-      const diff = wireplace.getUpdate();
-      if (!diff) {
-        return;
+      const diffs = wireplace.getUpdate();
+      for (const roomId in diffs) {
+        const diff = diffs[roomId];
+        socket.exchange.transmitPublish('update:' + roomId, diff);
       }
-      socket.exchange.transmitPublish('update', diff);
     }, 1000 / UPDATE_FPS);
   }
 
