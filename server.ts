@@ -106,69 +106,97 @@ expressApp.get('/health-check', (req, res) => {
 
     (async () => {
       for await (let request of socket.procedure('join')) {
-        const { username, token, roomId } = request.data;
-        const actorId = wireplace.join(socket.id, username, roomId, token);
-        serverLogger.info({
-          event: 'join',
-          username,
-          roomId,
-          token,
-          socket: socket.id,
-        });
-        request.end(actorId);
+        try {
+          const { username, token, roomId } = request.data;
+          const actorId = wireplace.join(socket.id, username, roomId, token);
+          serverLogger.info({
+            event: 'join',
+            username,
+            roomId,
+            token,
+            socket: socket.id,
+          });
+          request.end(actorId);
+        } catch (error) {
+          serverLogger.error({ error });
+        }
       }
     })();
 
     (async () => {
       for await (let request of socket.procedure('joinAudio')) {
-        const { username, token, roomId } = request.data;
-        const agoraToken = wireplace.joinAudio(socket.id, roomId);
-        serverLogger.info({
-          event: 'join',
-          username,
-          roomId,
-          token,
-          socket: socket.id,
-        });
-        request.end(agoraToken);
+        try {
+          const { username, token, roomId } = request.data;
+          const agoraToken = wireplace.joinAudio(socket.id, roomId);
+          serverLogger.info({
+            event: 'join',
+            username,
+            roomId,
+            token,
+            socket: socket.id,
+          });
+          request.end(agoraToken);
+        } catch (error) {
+          serverLogger.error({ error });
+        }
       }
     })();
 
     (async () => {
       for await (let request of socket.procedure('sync')) {
-        const diff = wireplace.sync(socket.id);
-        request.end(diff);
+        try {
+          const diff = wireplace.sync(socket.id);
+          request.end(diff);
+        } catch (error) {
+          serverLogger.error({ error });
+        }
       }
     })();
 
     (async () => {
       for await (let request of socket.procedure('user')) {
-        const user = wireplace.getUsers(request.data);
-        request.end(user);
+        try {
+          const user = wireplace.getUsers(request.data);
+          request.end(user);
+        } catch (error) {
+          serverLogger.error({ error });
+        }
       }
     })();
 
     (async () => {
       for await (let request of socket.procedure('getChatHistory')) {
-        const { socket } = request;
-        const lines = wireplace.getChatHistory(socket.id);
-        request.end(lines);
+        try {
+          const { socket } = request;
+          const lines = wireplace.getChatHistory(socket.id);
+          request.end(lines);
+        } catch (error) {
+          serverLogger.error({ error });
+        }
       }
     })();
 
     (async () => {
       for await (let data of socket.receiver('say')) {
-        const { roomId, line } = wireplace.say(socket.id, data);
-        if (line) {
-          serverLogger.info({ event: 'say', line, roomId, socket: socket.id });
-          socket.exchange.transmitPublish('said:' + roomId, line);
+        try {
+          const { roomId, line } = wireplace.say(socket.id, data);
+          if (line) {
+            serverLogger.info({ event: 'say', line, roomId, socket: socket.id });
+            socket.exchange.transmitPublish('said:' + roomId, line);
+          }
+        } catch (error) {
+          serverLogger.error({ error });
         }
       }
     })();
 
     (async () => {
       for await (let data of socket.receiver('move')) {
-        wireplace.move(socket.id, data);
+        try {
+          wireplace.move(socket.id, data);
+        } catch (error) {
+          serverLogger.error({ error });
+        }
       }
     })();
 
@@ -191,7 +219,11 @@ expressApp.get('/health-check', (req, res) => {
   for await (let { socket } of agServer.listener('closure')) {
     // Handle socket connection.
     serverLogger.info({ event: 'closure', socket: socket.id });
-    wireplace.leave(socket.id);
+    try {
+      wireplace.leave(socket.id);
+    } catch (error) {
+      serverLogger.error({ error });
+    }
   }
 })();
 
