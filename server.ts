@@ -1,7 +1,7 @@
 import admin from 'firebase-admin';
 import cors from 'cors';
 import eetase from 'eetase';
-import express, { request } from 'express';
+import express, { Response } from 'express';
 import fs from 'fs';
 import http from 'http';
 import https from 'https';
@@ -12,6 +12,7 @@ import serveStatic from 'serve-static';
 import socketClusterServer from 'socketcluster-server';
 import uuid from 'uuid';
 
+import { UserPermissions } from './constants';
 import logger from './logger';
 import * as wireplace from './wireplace';
 
@@ -94,15 +95,19 @@ if (ENVIRONMENT === 'dev') {
 expressApp.use(cors());
 expressApp.use(serveStatic(path.resolve(__dirname, 'public')));
 
+function sendResponse(res: Response<any>, code: number, data: Object) {
+  serverLogger.info({ event: 'http-response', code, data });
+  res.status(code).send(data);
+}
+
 // Add GET /health-check express route
 expressApp.get('/health-check', (req, res) => {
   res.status(200).send('OK');
 });
 
 expressApp.post('/login', async (req, res) => {
-  serverLogger.info({ body: req.body, headers: req.headers });
-
   const { authorization } = req.headers;
+
   if (!authorization || !authorization.startsWith('Bearer ')) {
     serverLogger.info({ event: 'invalid-firebase-token', authorization });
     res.status(400).send({ message: 'Invalid Firebase token' });
@@ -111,13 +116,26 @@ expressApp.post('/login', async (req, res) => {
 
   const firebaseToken = authorization.substr('Bearer '.length);
   const decodedToken = await admin.auth().verifyIdToken(firebaseToken);
-  const { uid } = decodedToken;
-  const user = await admin.firestore().collection('users').doc(uid).get();
-  serverLogger.info({ event: 'login-firestore', uid });
-  const { username, email } = user.data() as any;
-  if (!username || !email) {
-    serverLogger.info({ event: 'missing-firestore', username, email, uid });
-    res.status(500).send({ message: 'Server error' });
+  const { uid, email } = decodedToken;
+  serverLogger.info({ event: 'login-firestore', uid, email });
+
+  const user = (
+    await admin.firestore().collection('users').doc(uid).get()
+  ).data();
+
+  if (!user) {
+    sendResponse(res, 200, { uid, token: null, error: 'NEW_USER' });
+    return;
+  }
+
+  const { username, permission } = user;
+  if (!username) {
+    sendResponse(res, 200, { uid, token: null, error: 'NEW_USER' });
+    return;
+  }
+
+  if (!permission || permission === UserPermissions.WAITLIST) {
+    sendResponse(res, 200, { uid, token: null, error: 'ON_WAITLIST' });
     return;
   }
 
@@ -129,13 +147,13 @@ expressApp.post('/login', async (req, res) => {
 
   const { signatureKey } = agServer;
   if (!signatureKey) {
-    serverLogger.error({ message: 'Missing auth key' });
-    res.status(500).send({ message: 'Server error' });
+    serverLogger.error({ message: 'Missing auth key', uid });
+    sendResponse(res, 500, { message: 'Server error', uid });
     return;
   }
 
   const token = await agServer.auth.signToken(tokenData, signatureKey);
-  res.status(200).send({ token });
+  sendResponse(res, 200, { uid, token });
 });
 
 // HTTP request handling loop.
@@ -159,7 +177,6 @@ expressApp.post('/login', async (req, res) => {
           const { roomId } = request.data;
           serverLogger.info({ authToken: request.socket.authToken });
           const { username, uid, email } = request.socket.authToken;
-          // serverLogger.info({ data: request.data });
 
           const actorId = wireplace.join(uid, username, roomId);
           serverLogger.info({
