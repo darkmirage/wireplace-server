@@ -31,7 +31,6 @@ interface UserPublic {
 
 interface UserPrivate {
   assetId: number;
-  token: string;
   roomId: RoomID;
   savedPosition: { x: number; y: number; z: number };
 }
@@ -96,12 +95,7 @@ function getOrCreateRoom(roomId: RoomID): Room {
   return room;
 }
 
-function join(
-  userId: UserID,
-  username: string,
-  roomId: string,
-  token: string
-): ActorID {
+function join(userId: UserID, username: string, roomId: string): ActorID {
   const { scene } = getOrCreateRoom(roomId);
   const user = getUser(userId);
   if (user) {
@@ -120,7 +114,6 @@ function join(
     actorId,
     color,
     username,
-    token,
     assetId,
     roomId,
     savedPosition: { x: 0, y: 0, z: 0 },
@@ -206,7 +199,10 @@ function getUser(actorId: string): UserPublic | undefined {
   return { username, color, actorId };
 }
 
-function getUsers(actorIds: Array<ActorID>): Record<ActorID, UserPublic> {
+function getUsers(
+  userId: string,
+  actorIds: Array<ActorID>
+): Record<ActorID, UserPublic> {
   const results: Record<ActorID, UserPublic> = {};
   for (const actorId of actorIds) {
     const user = getUser(actorId);

@@ -1,3 +1,5 @@
+import admin from 'firebase-admin';
+import cors from 'cors';
 import eetase from 'eetase';
 import express, { request } from 'express';
 import fs from 'fs';
@@ -12,6 +14,13 @@ import uuid from 'uuid';
 
 import logger from './logger';
 import * as wireplace from './wireplace';
+
+const serviceAccount = require('../firebase-service-key.json');
+
+admin.initializeApp({
+  credential: admin.credential.cert(serviceAccount),
+  databaseURL: 'https://wire-place.firebaseio.com',
+});
 
 const serverLogger = logger.child({ module: 'server' });
 
@@ -82,11 +91,51 @@ if (ENVIRONMENT === 'dev') {
   // available formats.
   expressApp.use(morgan('dev'));
 }
+expressApp.use(cors());
 expressApp.use(serveStatic(path.resolve(__dirname, 'public')));
 
 // Add GET /health-check express route
 expressApp.get('/health-check', (req, res) => {
   res.status(200).send('OK');
+});
+
+expressApp.post('/login', async (req, res) => {
+  serverLogger.info({ body: req.body, headers: req.headers });
+
+  const { authorization } = req.headers;
+  if (!authorization || !authorization.startsWith('Bearer ')) {
+    serverLogger.info({ event: 'invalid-firebase-token', authorization });
+    res.status(400).send({ message: 'Invalid Firebase token' });
+    return;
+  }
+
+  const firebaseToken = authorization.substr('Bearer '.length);
+  const decodedToken = await admin.auth().verifyIdToken(firebaseToken);
+  const { uid } = decodedToken;
+  const user = await admin.firestore().collection('users').doc(uid).get();
+  serverLogger.info({ event: 'login-firestore', uid });
+  const { username, email } = user.data() as any;
+  if (!username || !email) {
+    serverLogger.info({ event: 'missing-firestore', username, email, uid });
+    res.status(500).send({ message: 'Server error' });
+    return;
+  }
+
+  const tokenData = {
+    email,
+    username,
+    uid,
+  };
+
+  const { signatureKey } = agServer;
+  if (!signatureKey) {
+    serverLogger.error({ message: 'Missing auth key' });
+    res.status(500).send({ message: 'Server error' });
+    return;
+  }
+
+  const token = await agServer.auth.signToken(tokenData, signatureKey);
+  res.status(200).send({ token });
 });
 
 // HTTP request handling loop.
@@ -107,15 +156,20 @@ expressApp.get('/health-check', (req, res) => {
     (async () => {
       for await (let request of socket.procedure('join')) {
         try {
-          const { username, token, roomId } = request.data;
-          const actorId = wireplace.join(socket.id, username, roomId, token);
+          const { roomId } = request.data;
+          serverLogger.info({ authToken: request.socket.authToken });
+          const { username, uid, email } = request.socket.authToken;
+          // serverLogger.info({ data: request.data });
+
+          const actorId = wireplace.join(uid, username, roomId);
           serverLogger.info({
             event: 'join',
             username,
+            email,
             roomId,
-            token,
             socket: socket.id,
           });
+
           request.end(actorId);
         } catch (error) {
           serverLogger.error({ error });
@@ -126,13 +180,13 @@ expressApp.get('/health-check', (req, res) => {
     (async () => {
       for await (let request of socket.procedure('joinAudio')) {
         try {
-          const { username, token, roomId } = request.data;
-          const agoraToken = wireplace.joinAudio(socket.id, roomId);
+          const { roomId } = request.data;
+          const { username, uid } = request.socket.authToken;
+          const agoraToken = wireplace.joinAudio(uid, roomId);
           serverLogger.info({
             event: 'join',
             username,
             roomId,
-            token,
             socket: socket.id,
           });
           request.end(agoraToken);
@@ -145,7 +199,8 @@ expressApp.get('/health-check', (req, res) => {
     (async () => {
       for await (let request of socket.procedure('sync')) {
         try {
-          const diff = wireplace.sync(socket.id);
+          const { uid } = request.socket.authToken;
+          const diff = wireplace.sync(uid);
           request.end(diff);
         } catch (error) {
           serverLogger.error({ error });
@@ -156,7 +211,8 @@ expressApp.get('/health-check', (req, res) => {
     (async () => {
       for await (let request of socket.procedure('user')) {
         try {
-          const user = wireplace.getUsers(request.data);
+          const { uid } = request.socket.authToken;
+          const user = wireplace.getUsers(uid, request.data);
           request.end(user);
         } catch (error) {
           serverLogger.error({ error });
@@ -167,8 +223,8 @@ expressApp.get('/health-check', (req, res) => {
     (async () => {
       for await (let request of socket.procedure('getChatHistory')) {
         try {
-          const { socket } = request;
-          const lines = wireplace.getChatHistory(socket.id);
+          const { uid } = request.socket.authToken;
+          const lines = wireplace.getChatHistory(uid);
           request.end(lines);
         } catch (error) {
           serverLogger.error({ error });
@@ -179,9 +235,18 @@ expressApp.get('/health-check', (req, res) => {
     (async () => {
       for await (let data of socket.receiver('say')) {
         try {
-          const { roomId, line } = wireplace.say(socket.id, data);
+          if (!socket.authToken) {
+            throw new Error('Missing auth token');
+          }
+          const { uid } = socket.authToken;
+          const { roomId, line } = wireplace.say(uid, data);
           if (line) {
-            serverLogger.info({ event: 'say', line, roomId, socket: socket.id });
+            serverLogger.info({
+              event: 'say',
+              line,
+              roomId,
+              socket: socket.id,
+            });
             socket.exchange.transmitPublish('said:' + roomId, line);
           }
         } catch (error) {
@@ -193,7 +258,11 @@ expressApp.get('/health-check', (req, res) => {
     (async () => {
       for await (let data of socket.receiver('move')) {
         try {
-          wireplace.move(socket.id, data);
+          if (!socket.authToken) {
+            throw new Error('Missing auth token');
+          }
+          const { uid } = socket.authToken;
+          wireplace.move(uid, data);
         } catch (error) {
           serverLogger.error({ error });
         }
@@ -218,9 +287,17 @@ expressApp.get('/health-check', (req, res) => {
 (async () => {
   for await (let { socket } of agServer.listener('closure')) {
     // Handle socket connection.
-    serverLogger.info({ event: 'closure', socket: socket.id });
+    serverLogger.info({
+      event: 'closure',
+      socket: socket.id,
+      authToken: socket.authToken,
+    });
     try {
-      wireplace.leave(socket.id);
+      if (!socket.authToken) {
+        throw new Error('Missing auth token');
+      }
+      const { uid } = socket.authToken;
+      wireplace.leave(uid);
     } catch (error) {
       serverLogger.error({ error });
     }
