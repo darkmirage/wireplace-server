@@ -30,6 +30,7 @@ interface UserPublic {
 }
 
 interface UserPrivate {
+  activeConnections: number;
   assetId: number;
   roomId: RoomID;
   savedPosition: { x: number; y: number; z: number };
@@ -61,9 +62,14 @@ function getRandomPosition(): number {
   return Math.random() * 3 - 1.5;
 }
 
+function getUser(userId: UserID): User {
+  return users[userId];
+}
+
 function getUserOrThrow(userId: UserID): User {
-  if (userId in users) {
-    return users[userId];
+  const user = getUser(userId);
+  if (user) {
+    return user;
   }
   throw new Error(`Invalid userId: ${userId}`);
 }
@@ -95,11 +101,24 @@ function getOrCreateRoom(roomId: RoomID): Room {
   return room;
 }
 
-function join(userId: UserID, username: string, roomId: string): ActorID {
+function join(
+  userId: UserID,
+  username: string,
+  roomId: string
+): { actorId: ActorID; username: string } {
   const { scene } = getOrCreateRoom(roomId);
   const user = getUser(userId);
   if (user) {
-    return user.actorId;
+    const actor = scene.getActor(user.actorId);
+    const { username, actorId } = user;
+    if (!actor) {
+      // Recreate previously destroyed actor
+      const { savedPosition, color, assetId } = user;
+      scene.addActor(actorId);
+      scene.updateActor(actorId, { color, position: savedPosition, assetId });
+    }
+    user.activeConnections += 1;
+    return { actorId, username };
   }
 
   const actorId = `a${nextActorId}`;
@@ -111,6 +130,7 @@ function join(userId: UserID, username: string, roomId: string): ActorID {
   scene.addActor(actorId);
   scene.updateActor(actorId, { color, position, assetId });
   const userRecord = {
+    activeConnections: 1,
     actorId,
     color,
     username,
@@ -120,7 +140,7 @@ function join(userId: UserID, username: string, roomId: string): ActorID {
   };
   users[userId] = userRecord;
   actorsToUsers[actorId] = userRecord;
-  return actorId;
+  return { actorId, username };
 }
 
 function joinAudio(userId: UserID, roomId: string): string {
@@ -142,20 +162,22 @@ function joinAudio(userId: UserID, roomId: string): string {
   return agoraToken;
 }
 
-function leave(userId: UserID): boolean {
+function leave(userId: UserID) {
   const user = users[userId];
+  user.activeConnections = Math.max(0, user.activeConnections - 1);
   const { actorId, roomId } = user;
   const room = getRoom(roomId);
-  if (room) {
+  if (room && user.activeConnections === 0) {
     const { scene } = room;
     const actor = scene.getActorOrThrow(actorId);
-    user.savedPosition.x = actor.position.x;
-    user.savedPosition.y = actor.position.y;
-    user.savedPosition.z = actor.position.z;
-    user.assetId = actor.assetId;
-    return scene.removeActor(actorId);
+    if (actor) {
+      user.savedPosition.x = actor.position.x;
+      user.savedPosition.y = actor.position.y;
+      user.savedPosition.z = actor.position.z;
+      user.assetId = actor.assetId;
+      scene.removeActor(actorId);
+    }
   }
-  return false;
 }
 
 function sync(userId: UserID): WirePlaceSceneSerialized {
@@ -190,7 +212,7 @@ function getUpdates(): Record<RoomID, WirePlaceSceneSerialized> {
   return updates;
 }
 
-function getUser(actorId: string): UserPublic | undefined {
+function getPublicUser(actorId: string): UserPublic | undefined {
   const user = actorsToUsers[actorId];
   if (!user) {
     return undefined;
@@ -199,13 +221,13 @@ function getUser(actorId: string): UserPublic | undefined {
   return { username, color, actorId };
 }
 
-function getUsers(
+function getPublicUsers(
   userId: string,
   actorIds: Array<ActorID>
 ): Record<ActorID, UserPublic> {
   const results: Record<ActorID, UserPublic> = {};
   for (const actorId of actorIds) {
-    const user = getUser(actorId);
+    const user = getPublicUser(actorId);
     if (user) {
       results[actorId] = user;
     }
@@ -216,7 +238,6 @@ function getUsers(
 const INITIAL_CHAT_HISTORY = 10;
 
 function getChatHistory(userId: string): Array<ChatLine> {
-  const chats: Array<ChatLine> = [];
   const { roomId } = getUserOrThrow(userId);
   const { lines } = getRoomOrThrow(roomId);
   return lines.slice(-INITIAL_CHAT_HISTORY);
@@ -249,7 +270,7 @@ export {
   joinAudio,
   sync,
   getUpdates,
-  getUsers,
+  getPublicUsers as getUsers,
   getChatHistory,
   say,
 };
