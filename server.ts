@@ -135,8 +135,16 @@ expressApp.post('/login', async (req, res) => {
   }
 
   if (!permission || permission === UserPermissions.WAITLIST) {
-    sendResponse(res, 200, { uid, token: null, error: 'ON_WAITLIST' });
-    return;
+    const waitlist = (
+      await admin.firestore().collection('settings').doc('waitlist').get()
+    ).data();
+    const waitlistEnabled = !waitlist || waitlist.enabled;
+    serverLogger.info({ event: 'waitlist', permission, waitlistEnabled });
+
+    if (waitlistEnabled) {
+      sendResponse(res, 200, { uid, token: null, error: 'ON_WAITLIST' });
+      return;
+    }
   }
 
   const tokenData = {
