@@ -1,6 +1,6 @@
 import {
   ActorID,
-  IScene,
+  IMasterScene,
   Update,
   WirePlaceScene,
   WirePlaceSceneSerialized,
@@ -20,7 +20,7 @@ type UserID = string;
 type RoomID = string;
 
 type Room = {
-  scene: IScene<WirePlaceSceneSerialized>;
+  scene: IMasterScene<WirePlaceSceneSerialized>;
   lines: Array<ChatLine>;
 };
 
