@@ -1,7 +1,8 @@
 import {
-  WirePlaceScene,
   ActorID,
+  IScene,
   Update,
+  WirePlaceScene,
   WirePlaceSceneSerialized,
 } from 'wireplace-scene';
 import { schemeSet1 } from 'd3-scale-chromatic';
@@ -19,7 +20,7 @@ type UserID = string;
 type RoomID = string;
 
 type Room = {
-  scene: WirePlaceScene;
+  scene: IScene<WirePlaceSceneSerialized>;
   lines: Array<ChatLine>;
 };
 
