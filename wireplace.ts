@@ -92,11 +92,11 @@ function getOrCreateRoom(roomId: RoomID): Room {
     return room;
   }
 
-  logger.info({ event: 'new room', roomId });
   room = {
     scene: new WirePlaceScene(),
     lines: [],
   };
+  logger.info({ event: 'new room', roomId, sceneVersion: room.scene.version });
   rooms[roomId] = room;
   return room;
 }
