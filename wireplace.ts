@@ -2,18 +2,17 @@ import {
   ActorID,
   IMasterScene,
   Update,
-  WirePlaceScene,
   WirePlaceSceneSerialized,
 } from 'wireplace-scene';
-import { schemeSet1 } from 'd3-scale-chromatic';
+import { schemeCategory10 } from 'd3-scale-chromatic';
 import { RtcTokenBuilder, RtcRole } from 'agora-access-token';
 
 import logger from './logger';
+import createDefaultScene from './createDefaultScene';
 
 const AGORA_APP_ID = '2fe980bdfc9f40f9bde6d0348f8f2f9d';
 const AGORO_CERTIFICATE = 'b21e0b9643254bf7a649c0319c10a3a5';
 
-let nextActorId = 0;
 let nextLineId = 0;
 
 type UserID = string;
@@ -87,6 +86,12 @@ function getRoomOrThrow(roomId: RoomID): Room {
   throw new Error(`Invalid roomId: ${roomId}`);
 }
 
+// This should load the scene from a store or cache, but right now simply
+// initializes it with some default props
+function loadScene(roomId: RoomID): IMasterScene<WirePlaceSceneSerialized> {
+  return createDefaultScene();
+}
+
 function getOrCreateRoom(roomId: RoomID): Room {
   let room = getRoom(roomId);
   if (room) {
@@ -94,7 +99,7 @@ function getOrCreateRoom(roomId: RoomID): Room {
   }
 
   room = {
-    scene: new WirePlaceScene(),
+    scene: loadScene(roomId),
     lines: [],
   };
   logger.info({ event: 'new room', roomId, sceneVersion: room.scene.version });
@@ -116,18 +121,23 @@ function join(
       // Recreate previously destroyed actor
       const { savedPosition, color, assetId } = user;
       scene.addActor(actorId);
-      scene.updateActor(actorId, { color, position: savedPosition, assetId });
+      scene.updateActor(actorId, {
+        color,
+        position: savedPosition,
+        assetId,
+        action: { state: -1, type: 1 },
+      });
     }
     user.activeConnections += 1;
     return { actorId, username };
   }
 
-  const actorId = `a${nextActorId}`;
-  const colorHex = schemeSet1[nextActorId % schemeSet1.length];
+  const actorId = scene.nextActorID();
+  const colorHex =
+    schemeCategory10[getRandomInt(0, schemeCategory10.length - 1)];
   const color = parseInt(colorHex.substr(1), 16);
   const assetId = getRandomInt(0, NUMBER_ASSETS - 1);
   const position = { x: getRandomPosition(), y: 0, z: getRandomPosition() };
-  nextActorId += 1;
   scene.addActor(actorId);
   scene.updateActor(actorId, { color, position, assetId });
   const userRecord = {
@@ -142,6 +152,13 @@ function join(
   users[userId] = userRecord;
   actorsToUsers[actorId] = userRecord;
   return { actorId, username };
+}
+
+function spawn(userId: UserID, roomId: RoomID, assetId: number) {
+  const { scene } = getRoomOrThrow(roomId);
+  const actorId = scene.nextActorID();
+  scene.addActor(actorId);
+  scene.updateActor(actorId, { assetId });
 }
 
 function joinAudio(userId: UserID, roomId: string): string {
@@ -271,7 +288,8 @@ export {
   joinAudio,
   sync,
   getUpdates,
-  getPublicUsers as getUsers,
+  getPublicUsers,
   getChatHistory,
   say,
+  spawn,
 };

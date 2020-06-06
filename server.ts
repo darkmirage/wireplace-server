@@ -237,7 +237,7 @@ expressApp.post('/login', async (req, res) => {
       for await (let request of socket.procedure('user')) {
         try {
           const { uid } = request.socket.authToken;
-          const user = wireplace.getUsers(uid, request.data);
+          const user = wireplace.getPublicUsers(uid, request.data);
           request.end(user);
         } catch (error) {
           serverLogger.error({ error });
@@ -251,6 +251,19 @@ expressApp.post('/login', async (req, res) => {
           const { uid } = request.socket.authToken;
           const lines = wireplace.getChatHistory(uid);
           request.end(lines);
+        } catch (error) {
+          serverLogger.error({ error });
+        }
+      }
+    })();
+
+    (async () => {
+      for await (let request of socket.procedure('spawn')) {
+        try {
+          const { assetId, roomId } = request.data;
+          const { uid } = request.socket.authToken;
+          wireplace.spawn(uid, roomId, assetId);
+          request.end(true);
         } catch (error) {
           serverLogger.error({ error });
         }
