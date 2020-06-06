@@ -294,13 +294,13 @@ expressApp.post('/login', async (req, res) => {
     })();
 
     (async () => {
-      for await (let data of socket.receiver('move')) {
+      for await (let { actorId, update } of socket.receiver('move')) {
         try {
           if (!socket.authToken) {
             throw new Error('Missing auth token');
           }
           const { uid } = socket.authToken;
-          wireplace.move(uid, data);
+          wireplace.move(uid, actorId, update);
         } catch (error) {
           serverLogger.error({ error });
         }

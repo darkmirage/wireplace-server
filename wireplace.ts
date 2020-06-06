@@ -158,7 +158,7 @@ function spawn(userId: UserID, roomId: RoomID, assetId: number) {
   const { scene } = getRoomOrThrow(roomId);
   const actorId = scene.nextActorID();
   scene.addActor(actorId);
-  scene.updateActor(actorId, { assetId });
+  scene.updateActor(actorId, { assetId, movable: true });
 }
 
 function joinAudio(userId: UserID, roomId: string): string {
@@ -261,10 +261,16 @@ function getChatHistory(userId: string): Array<ChatLine> {
   return lines.slice(-INITIAL_CHAT_HISTORY);
 }
 
-function move(userId: UserID, u: Update) {
+function move(userId: UserID, movedActorId: ActorID, u: Update) {
   const { actorId, roomId } = getUserOrThrow(userId);
   const { scene } = getRoomOrThrow(roomId);
-  return scene.updateActor(actorId, u);
+
+  if (movedActorId === actorId) {
+    return scene.updateActor(actorId, u);
+  } else {
+    // TODO: check user permission to move object
+    return scene.updateActor(movedActorId, u);
+  }
 }
 
 function say(
