@@ -154,11 +154,12 @@ function join(
   return { actorId, username };
 }
 
-function spawn(userId: UserID, roomId: RoomID, assetId: number) {
+function spawn(userId: UserID, roomId: RoomID, assetId: number): ActorID {
   const { scene } = getRoomOrThrow(roomId);
   const actorId = scene.nextActorID();
   scene.addActor(actorId);
   scene.updateActor(actorId, { assetId, movable: true });
+  return actorId;
 }
 
 function joinAudio(userId: UserID, roomId: string): string {
@@ -196,6 +197,11 @@ function leave(userId: UserID) {
       scene.removeActor(actorId);
     }
   }
+}
+
+function remove(userId: UserID, roomId: RoomID, actorId: string): boolean {
+  const { scene } = getRoomOrThrow(roomId);
+  return scene.removeActor(actorId);
 }
 
 function sync(userId: UserID): WirePlaceSceneSerialized {
@@ -288,14 +294,15 @@ function say(
 }
 
 export {
-  leave,
-  move,
+  getChatHistory,
+  getPublicUsers,
+  getUpdates,
   join,
   joinAudio,
-  sync,
-  getUpdates,
-  getPublicUsers,
-  getChatHistory,
+  leave,
+  move,
+  remove,
   say,
   spawn,
+  sync,
 };

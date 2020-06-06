@@ -262,8 +262,39 @@ expressApp.post('/login', async (req, res) => {
         try {
           const { assetId, roomId } = request.data;
           const { uid } = request.socket.authToken;
-          wireplace.spawn(uid, roomId, assetId);
+          const actorId = wireplace.spawn(uid, roomId, assetId);
+
+          serverLogger.info({
+            event: 'spawn',
+            uid,
+            roomId,
+            socket: socket.id,
+            assetId,
+            actorId,
+          });
+
           request.end(true);
+        } catch (error) {
+          serverLogger.error({ error });
+        }
+      }
+    })();
+
+    (async () => {
+      for await (let request of socket.procedure('remove')) {
+        try {
+          const { actorId, roomId } = request.data;
+          const { uid } = request.socket.authToken;
+          const success = wireplace.remove(uid, roomId, actorId);
+          serverLogger.info({
+            event: 'remove',
+            uid,
+            roomId,
+            socket: socket.id,
+            actorId,
+            success,
+          });
+          request.end(success);
         } catch (error) {
           serverLogger.error({ error });
         }
