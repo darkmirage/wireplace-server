@@ -21,8 +21,12 @@ function createDefaultScene(): IMasterScene<WirePlaceSceneSerialized> {
 const DefaultScene: Update[] = [
   {
     assetId: 1001,
-    position: { x: -7, y: 0, z: -0.6000000238418579 },
-    rotation: { x: 0, y: 0, z: 0 },
+    position: {
+      x: 11.449999809265137,
+      y: 1.2999999523162842,
+      z: 8.649999618530273,
+    },
+    rotation: { x: 0, y: 1.5707963705062866, z: 0 },
     movable: true,
   },
   {
@@ -401,14 +405,14 @@ const DefaultScene: Update[] = [
   },
   {
     assetId: 1004,
-    position: { x: -9.899999618530273, y: 0, z: -3.4000000953674316 },
+    position: { x: -9.850000381469727, y: 0, z: -3.450000047683716 },
     rotation: { x: 0, y: 0, z: 0 },
     movable: true,
   },
   {
     assetId: 1004,
-    position: { x: -12.399999618530273, y: 0, z: -3.4000000953674316 },
-    rotation: { x: 0, y: 0, z: 0 },
+    position: { x: -12.350000381469727, y: 0, z: -3.4000000953674316 },
+    rotation: { x: 0, y: 4.371139183945161e-8, z: 0 },
     movable: true,
   },
   {
@@ -421,6 +425,58 @@ const DefaultScene: Update[] = [
     assetId: 1004,
     position: { x: 12.5, y: 0, z: -1.100000023841858 },
     rotation: { x: 0, y: -1.570796251296997, z: 0 },
+    movable: true,
+  },
+  {
+    assetId: 1040,
+    position: { x: -12.350000381469727, y: 0, z: -0.75 },
+    rotation: { x: 0, y: 1.5707963705062866, z: 0 },
+    movable: true,
+  },
+  {
+    assetId: 1041,
+    position: { x: 2.3499999046325684, y: 0, z: 9.800000190734863 },
+    rotation: { x: 0, y: 1.5707963705062866, z: 0 },
+    movable: true,
+  },
+  {
+    assetId: 1041,
+    position: { x: 9.100000381469727, y: 0, z: 5.150000095367432 },
+    rotation: { x: 0, y: 0, z: 0 },
+    movable: true,
+  },
+  {
+    assetId: 1042,
+    position: { x: -1.5, y: 2.0999999046325684, z: -3.25 },
+    rotation: { x: 0, y: 0, z: 0 },
+    movable: true,
+  },
+  {
+    assetId: 1043,
+    position: { x: 6.949999809265137, y: 1.75, z: -0.949999988079071 },
+    rotation: { x: 0, y: 0, z: 0 },
+    movable: true,
+  },
+  {
+    assetId: 1040,
+    position: { x: -6.349999904632568, y: 0, z: 11.649999618530273 },
+    rotation: { x: 0, y: 1.5707963705062866, z: 0 },
+    movable: true,
+  },
+  {
+    assetId: 1040,
+    position: { x: -12.149999618530273, y: 0, z: 3.5 },
+    rotation: { x: 0, y: -1.5707963705062866, z: 0 },
+    movable: true,
+  },
+  {
+    assetId: 1040,
+    position: { x: -6.300000190734863, y: 0, z: 9.25 },
+    rotation: {
+      x: -3.1415927410125732,
+      y: 0.7853981852531433,
+      z: -3.1415927410125732,
+    },
     movable: true,
   },
 ];
