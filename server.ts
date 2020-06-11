@@ -176,17 +176,24 @@ expressApp.post('/login', async (req, res) => {
   let intervalId: NodeJS.Timeout | undefined = undefined;
 
   for await (let { socket } of agServer.listener('connection')) {
-    // Handle socket connection.
     serverLogger.info({ event: 'connection', socket: socket.id });
 
     (async () => {
       for await (let request of socket.procedure('join')) {
         try {
           const { roomId } = request.data;
-          serverLogger.info({ authToken: request.socket.authToken });
+          serverLogger.info({
+            authToken: request.socket.authToken,
+            socket: request.socket.id,
+          });
           const { username, uid, email } = request.socket.authToken;
 
-          const actorId = wireplace.join(uid, username, roomId);
+          const actorId = wireplace.join(
+            uid,
+            request.socket.id,
+            username,
+            roomId
+          );
           serverLogger.info({
             event: 'join',
             username,
@@ -225,7 +232,14 @@ expressApp.post('/login', async (req, res) => {
       for await (let request of socket.procedure('sync')) {
         try {
           const { uid } = request.socket.authToken;
-          const diff = wireplace.sync(uid);
+          const { roomId } = request.data;
+          serverLogger.info({
+            event: 'sync',
+            uid,
+            roomId,
+            socket: socket.id,
+          });
+          const diff = wireplace.sync(uid, roomId);
           request.end(diff);
         } catch (error) {
           serverLogger.error({ error });
@@ -234,10 +248,11 @@ expressApp.post('/login', async (req, res) => {
     })();
 
     (async () => {
-      for await (let request of socket.procedure('user')) {
+      for await (let request of socket.procedure('getRoomUsers')) {
         try {
           const { uid } = request.socket.authToken;
-          const user = wireplace.getPublicUsers(uid, request.data);
+          const { roomId, query } = request.data;
+          const user = wireplace.getRoomUsers(uid, roomId, query);
           request.end(user);
         } catch (error) {
           serverLogger.error({ error });
@@ -249,7 +264,8 @@ expressApp.post('/login', async (req, res) => {
       for await (let request of socket.procedure('getChatHistory')) {
         try {
           const { uid } = request.socket.authToken;
-          const lines = wireplace.getChatHistory(uid);
+          const { roomId } = request.data;
+          const lines = wireplace.getChatHistory(uid, roomId);
           request.end(lines);
         } catch (error) {
           serverLogger.error({ error });
@@ -302,13 +318,13 @@ expressApp.post('/login', async (req, res) => {
     })();
 
     (async () => {
-      for await (let data of socket.receiver('say')) {
+      for await (let { message, roomId } of socket.receiver('say')) {
         try {
           if (!socket.authToken) {
             throw new Error('Missing auth token');
           }
           const { uid } = socket.authToken;
-          const { roomId, line } = wireplace.say(uid, data);
+          const { line } = wireplace.say(uid, roomId, message);
           if (line) {
             serverLogger.info({
               event: 'say',
@@ -325,13 +341,13 @@ expressApp.post('/login', async (req, res) => {
     })();
 
     (async () => {
-      for await (let { actorId, update } of socket.receiver('move')) {
+      for await (let { actorId, roomId, update } of socket.receiver('move')) {
         try {
           if (!socket.authToken) {
             throw new Error('Missing auth token');
           }
           const { uid } = socket.authToken;
-          wireplace.move(uid, actorId, update);
+          wireplace.move(uid, roomId, actorId, update);
         } catch (error) {
           serverLogger.error({ error });
         }
@@ -355,7 +371,6 @@ expressApp.post('/login', async (req, res) => {
 
 (async () => {
   for await (let { socket } of agServer.listener('closure')) {
-    // Handle socket connection.
     serverLogger.info({
       event: 'closure',
       socket: socket.id,
@@ -366,7 +381,13 @@ expressApp.post('/login', async (req, res) => {
         throw new Error('Missing auth token');
       }
       const { uid } = socket.authToken;
-      wireplace.leave(uid);
+      const { roomId, left } = wireplace.leave(uid, socket.id);
+      serverLogger.info({
+        event: 'leave',
+        userId: uid,
+        roomId,
+        left,
+      });
     } catch (error) {
       serverLogger.error({ error });
     }

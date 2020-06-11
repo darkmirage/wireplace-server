@@ -22,12 +22,12 @@ const logger = winston.createLogger({
         format.colorize(),
         format.printf((l) => {
           const m: any = l.message;
-          let { event, socket } = m;
+          let { event, socket, roomId } = m;
           let output = '';
           if (m.event === 'say') {
-            output = `[${m.roomId}] ${chalk.bold(
-              m.line.username
-            )}: ${chalk.blueBright(m.line.message)}`;
+            output = `${chalk.bold(m.line.username)}: ${chalk.blueBright(
+              m.line.message
+            )}`;
           } else {
             const m_ = { ...m };
             delete m_.event;
@@ -58,8 +58,9 @@ const logger = winston.createLogger({
           }
 
           socket = socket ? `[${socket.substr(0, DEFAULT_EVENT.length)}] ` : '';
+          roomId = roomId ? `[${roomId}] ` : '';
 
-          return `${l.timestamp} [${l.level}] ${socket}[${event}] ${output}`;
+          return `${l.timestamp} [${l.level}] ${roomId}${socket}[${event}] ${output}`;
         })
       ),
     }),

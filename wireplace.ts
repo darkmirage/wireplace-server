@@ -20,23 +20,26 @@ type RoomID = string;
 
 type Room = {
   scene: IMasterScene<WirePlaceSceneSerialized>;
+  users: Record<UserID, RoomUser>;
   lines: Array<ChatLine>;
 };
 
 interface UserPublic {
-  actorId: ActorID;
   color: number;
   username: string;
+  userId: UserID;
 }
 
-interface UserPrivate {
+interface RoomUser {
+  username: string;
+  actorId: ActorID;
   activeConnections: number;
   assetId: number;
   roomId: RoomID;
   savedPosition: { x: number; y: number; z: number };
 }
 
-type User = UserPublic & UserPrivate;
+type User = UserPublic;
 
 interface ChatLine {
   color: number;
@@ -51,6 +54,7 @@ const NUMBER_ASSETS = 10;
 const rooms: Record<RoomID, Room> = {};
 const users: Record<UserID, User> = {};
 const actorsToUsers: Record<ActorID, User> = {};
+const socketsToRooms: Record<string, RoomID> = {};
 
 function getRandomInt(min: number, max: number): number {
   min = Math.ceil(min);
@@ -62,7 +66,7 @@ function getRandomPosition(): number {
   return Math.random() * 3 - 1.5;
 }
 
-function getUser(userId: UserID): User {
+function getUser(userId: UserID): User | undefined {
   return users[userId];
 }
 
@@ -72,6 +76,15 @@ function getUserOrThrow(userId: UserID): User {
     return user;
   }
   throw new Error(`Invalid userId: ${userId}`);
+}
+
+function getRoomUserOrThrow(roomId: RoomID, userId: UserID): RoomUser {
+  const room = getRoomOrThrow(roomId);
+  const user = room.users[userId];
+  if (user) {
+    return user;
+  }
+  throw new Error('User is not in the room');
 }
 
 function getRoom(roomId: RoomID): Room | null {
@@ -101,6 +114,7 @@ function getOrCreateRoom(roomId: RoomID): Room {
   room = {
     scene: loadScene(roomId),
     lines: [],
+    users: {},
   };
   logger.info({ event: 'new room', roomId, sceneVersion: room.scene.version });
   rooms[roomId] = room;
@@ -109,17 +123,23 @@ function getOrCreateRoom(roomId: RoomID): Room {
 
 function join(
   userId: UserID,
+  socketId: string,
   username: string,
   roomId: string
 ): { actorId: ActorID; username: string } {
-  const { scene } = getOrCreateRoom(roomId);
+  socketsToRooms[socketId] = roomId;
+  const room = getOrCreateRoom(roomId);
+  const { scene } = room;
   const user = getUser(userId);
-  if (user) {
-    const actor = scene.getActor(user.actorId);
-    const { username, actorId } = user;
+  const roomUser = room.users[userId];
+
+  if (user && roomUser) {
+    const { actorId } = roomUser;
+    const actor = scene.getActor(actorId);
     if (!actor) {
       // Recreate previously destroyed actor
-      const { savedPosition, color, assetId } = user;
+      const { savedPosition, assetId } = roomUser;
+      const { color } = user;
       scene.addActor(actorId);
       scene.updateActor(actorId, {
         color,
@@ -128,19 +148,20 @@ function join(
         action: { state: -1, type: 1 },
       });
     }
-    user.activeConnections += 1;
+    roomUser.activeConnections += 1;
     return { actorId, username };
   }
 
   const actorId = scene.nextActorID();
   const colorHex =
     schemeCategory10[getRandomInt(0, schemeCategory10.length - 1)];
-  const color = parseInt(colorHex.substr(1), 16);
+  const color = user ? user.color : parseInt(colorHex.substr(1), 16);
   const assetId = getRandomInt(0, NUMBER_ASSETS - 1);
   const position = { x: getRandomPosition(), y: 0, z: getRandomPosition() };
   scene.addActor(actorId);
   scene.updateActor(actorId, { color, position, assetId });
   const userRecord = {
+    userId,
     activeConnections: 1,
     actorId,
     color,
@@ -151,6 +172,8 @@ function join(
   };
   users[userId] = userRecord;
   actorsToUsers[actorId] = userRecord;
+  room.users[userId] = userRecord;
+
   return { actorId, username };
 }
 
@@ -163,11 +186,13 @@ function spawn(userId: UserID, roomId: RoomID, assetId: number): ActorID {
 }
 
 function joinAudio(userId: UserID, roomId: string): string {
-  const userRecord = users[userId];
-  if (!userRecord) {
+  const room = getRoomOrThrow(roomId);
+  const roomUser = room.users[userId];
+  if (!roomUser) {
     throw new Error('Invalid user');
   }
-  const { actorId } = userRecord;
+
+  const { actorId } = roomUser;
   const currentTimestamp = Math.floor(Date.now() / 1000);
   const expirationTimestamp = currentTimestamp + 3600;
   const agoraToken = RtcTokenBuilder.buildTokenWithAccount(
@@ -181,22 +206,31 @@ function joinAudio(userId: UserID, roomId: string): string {
   return agoraToken;
 }
 
-function leave(userId: UserID) {
-  const user = users[userId];
-  user.activeConnections = Math.max(0, user.activeConnections - 1);
-  const { actorId, roomId } = user;
-  const room = getRoom(roomId);
-  if (room && user.activeConnections === 0) {
+function leave(
+  userId: UserID,
+  socketId: string
+): { roomId: RoomID; left: boolean } {
+  const roomId = socketsToRooms[socketId];
+  const room = getRoomOrThrow(roomId);
+  const roomUser = room.users[userId];
+  if (!roomUser) {
+    throw new Error('Invalid user');
+  }
+
+  roomUser.activeConnections = Math.max(0, roomUser.activeConnections - 1);
+  const { actorId } = roomUser;
+
+  if (roomUser.activeConnections === 0) {
     const { scene } = room;
     const actor = scene.getActorOrThrow(actorId);
-    if (actor) {
-      user.savedPosition.x = actor.position.x;
-      user.savedPosition.y = actor.position.y;
-      user.savedPosition.z = actor.position.z;
-      user.assetId = actor.assetId;
-      scene.removeActor(actorId);
-    }
+    roomUser.savedPosition.x = actor.position.x;
+    roomUser.savedPosition.y = actor.position.y;
+    roomUser.savedPosition.z = actor.position.z;
+    roomUser.assetId = actor.assetId;
+    scene.removeActor(actorId);
   }
+
+  return { roomId, left: roomUser.activeConnections === 0 };
 }
 
 function remove(userId: UserID, roomId: RoomID, actorId: string): boolean {
@@ -204,8 +238,7 @@ function remove(userId: UserID, roomId: RoomID, actorId: string): boolean {
   return scene.removeActor(actorId);
 }
 
-function sync(userId: UserID): WirePlaceSceneSerialized {
-  const { roomId } = getUserOrThrow(userId);
+function sync(userId: UserID, roomId: RoomID): WirePlaceSceneSerialized {
   const room = getRoom(roomId);
   if (room) {
     const { scene } = room;
@@ -236,39 +269,45 @@ function getUpdates(): Record<RoomID, WirePlaceSceneSerialized> {
   return updates;
 }
 
-function getPublicUser(actorId: string): UserPublic | undefined {
-  const user = actorsToUsers[actorId];
-  if (!user) {
-    return undefined;
-  }
-  const { username, color } = user;
-  return { username, color, actorId };
-}
-
-function getPublicUsers(
-  userId: string,
+function getRoomUsers(
+  userId: UserID,
+  roomId: RoomID,
   actorIds: Array<ActorID>
-): Record<ActorID, UserPublic> {
-  const results: Record<ActorID, UserPublic> = {};
+): Record<ActorID, RoomUser> {
+  const results: Record<ActorID, RoomUser> = {};
+  const room = getRoomOrThrow(roomId);
   for (const actorId of actorIds) {
-    const user = getPublicUser(actorId);
-    if (user) {
-      results[actorId] = user;
+    const user = actorsToUsers[actorId];
+    if (!user) {
+      continue;
     }
+    const roomUser = room.users[user.userId];
+    if (!roomUser) {
+      continue;
+    }
+
+    results[actorId] = roomUser;
   }
   return results;
 }
 
 const INITIAL_CHAT_HISTORY = 10;
 
-function getChatHistory(userId: string): Array<ChatLine> {
-  const { roomId } = getUserOrThrow(userId);
-  const { lines } = getRoomOrThrow(roomId);
-  return lines.slice(-INITIAL_CHAT_HISTORY);
+function getChatHistory(userId: string, roomId: RoomID): Array<ChatLine> {
+  const room = getRoomOrThrow(roomId);
+  if (userId in room.users) {
+    return room.lines.slice(-INITIAL_CHAT_HISTORY);
+  }
+  throw new Error('User is not in the room');
 }
 
-function move(userId: UserID, movedActorId: ActorID, u: Update) {
-  const { actorId, roomId } = getUserOrThrow(userId);
+function move(
+  userId: UserID,
+  roomId: RoomID,
+  movedActorId: ActorID,
+  u: Update
+) {
+  const { actorId } = getRoomUserOrThrow(roomId, userId);
   const { scene } = getRoomOrThrow(roomId);
 
   if (movedActorId === actorId) {
@@ -281,10 +320,11 @@ function move(userId: UserID, movedActorId: ActorID, u: Update) {
 
 function say(
   userId: UserID,
+  roomId: RoomID,
   message: string
 ): { roomId: RoomID; line: ChatLine } {
   const time = Date.now();
-  const { username, color, roomId } = getUserOrThrow(userId);
+  const { username, color } = getUserOrThrow(userId);
   const { lines } = getRoomOrThrow(roomId);
   const lineId = nextLineId;
   const line: ChatLine = { lineId, time, username, message, color };
@@ -295,7 +335,7 @@ function say(
 
 export {
   getChatHistory,
-  getPublicUsers,
+  getRoomUsers,
   getUpdates,
   join,
   joinAudio,
