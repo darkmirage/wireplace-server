@@ -2,6 +2,7 @@ import admin from 'firebase-admin';
 import cors from 'cors';
 import eetase from 'eetase';
 import express, { Response } from 'express';
+import bodyParser from 'body-parser';
 import fs from 'fs';
 import http from 'http';
 import https from 'https';
@@ -93,6 +94,7 @@ if (ENVIRONMENT === 'dev') {
   expressApp.use(morgan('dev'));
 }
 expressApp.use(cors());
+expressApp.use(bodyParser.json());
 expressApp.use(serveStatic(path.resolve(__dirname, 'public')));
 
 function sendResponse(res: Response<any>, code: number, data: Object) {
@@ -103,6 +105,26 @@ function sendResponse(res: Response<any>, code: number, data: Object) {
 // Add GET /health-check express route
 expressApp.get('/health-check', (req, res) => {
   res.status(200).send('OK');
+});
+
+expressApp.post('/manual-login', async (req, res) => {
+  const { username, uuid } = req.body;
+  serverLogger.info({ event: 'login-uuid', uuid, username });
+
+  const tokenData = {
+    uid: uuid,
+    username,
+  };
+
+  const { signatureKey } = agServer;
+  if (!signatureKey) {
+    serverLogger.error({ message: 'Missing auth key', uuid });
+    sendResponse(res, 500, { message: 'Server error', uuid });
+    return;
+  }
+
+  const token = await agServer.auth.signToken(tokenData, signatureKey);
+  sendResponse(res, 200, { uuid, token });
 });
 
 expressApp.post('/login', async (req, res) => {
