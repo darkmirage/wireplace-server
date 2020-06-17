@@ -21,11 +21,7 @@ function createDefaultScene(): IMasterScene<WirePlaceSceneSerialized> {
 const DefaultScene: Update[] = [
   {
     assetId: 1001,
-    position: {
-      x: 11.449999809265137,
-      y: 1.2999999523162842,
-      z: 8.649999618530273,
-    },
+    position: { x: 11.449999809265137, y: 0, z: 8.649999618530273 },
     rotation: { x: 0, y: 1.5707963705062866, z: 0 },
     movable: true,
   },
@@ -140,16 +136,6 @@ const DefaultScene: Update[] = [
     movable: true,
   },
   {
-    assetId: 1011,
-    position: {
-      x: 5.900000095367432,
-      y: 1.0499999523162842,
-      z: 9.399999618530273,
-    },
-    rotation: { x: 0, y: -4.371139183945161e-8, z: 0 },
-    movable: true,
-  },
-  {
     assetId: 1012,
     position: { x: 5.699999809265137, y: 0, z: 4.599999904632568 },
     rotation: {
@@ -218,48 +204,6 @@ const DefaultScene: Update[] = [
     movable: true,
   },
   {
-    assetId: 1023,
-    position: { x: -3.9000000953674316, y: 0.75, z: 3.8499999046325684 },
-    rotation: { x: 0, y: 0.39269909262657166, z: 0 },
-    movable: true,
-  },
-  {
-    assetId: 1023,
-    position: {
-      x: 3.450000047683716,
-      y: 0.800000011920929,
-      z: 7.900000095367432,
-    },
-    rotation: { x: 0, y: -1.5707963705062866, z: 0 },
-    movable: true,
-  },
-  {
-    assetId: 1024,
-    position: { x: -2.6500000953674316, y: 0.75, z: 2.4000000953674316 },
-    rotation: {
-      x: -3.1415927410125732,
-      y: 0.39269909262657166,
-      z: -3.1415927410125732,
-    },
-    movable: true,
-  },
-  {
-    assetId: 1025,
-    position: { x: 9.25, y: 0.75, z: 2.200000047683716 },
-    rotation: { x: 0, y: 0.7853981852531433, z: 0 },
-    movable: true,
-  },
-  {
-    assetId: 1027,
-    position: { x: 0.4000000059604645, y: 0, z: -2.6500000953674316 },
-    rotation: {
-      x: 1.5099580252808664e-7,
-      y: 2.1855695919725804e-8,
-      z: 8.742277657347586e-8,
-    },
-    movable: true,
-  },
-  {
     assetId: 1028,
     position: { x: 2.75, y: 0, z: 8.149999618530273 },
     rotation: { x: 0, y: 1.5707963705062866, z: 0 },
@@ -308,12 +252,6 @@ const DefaultScene: Update[] = [
   {
     assetId: 1034,
     position: { x: 7.449999809265137, y: 1, z: 9.75 },
-    rotation: { x: 0, y: 0, z: 0 },
-    movable: true,
-  },
-  {
-    assetId: 1023,
-    position: { x: 3.5999999046325684, y: 0.75, z: 9.649999618530273 },
     rotation: { x: 0, y: 0, z: 0 },
     movable: true,
   },
